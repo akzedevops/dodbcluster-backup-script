@@ -1,31 +1,43 @@
 #!/bin/bash
 
+# Set the path
 export PATH=/bin:/usr/bin:/usr/local/bin
-TODAY=`date +"%H:%M_%b%d%Y"`
+
+# Get the current date and time
+TODAY=$(date +"%H:%M_%b%d%Y")
 
 ################################################################
 ################## Update below values  ########################
 
-DB_BACKUP_PATH='/Home/where u want to store'
-MYSQL_HOST=''
-MYSQL_PORT=''
-MYSQL_USER=''
-MYSQL_PASSWORD=''
-DATABASE_NAME=''
-BACKUP_RETAIN_DAYS=30
+# Set the database backup path
+db_backup_path='/Home/where-u-want-to-store'
+
+# Set the MySQL connection details
+mysql_host=''
+mysql_port=''
+mysql_user=''
+mysql_password=''
+
+# Set the database name
+database_name=''
+
+# Set the number of days to retain the backups
+backup_retain_days=30
 
 #################################################################
 
-mkdir -p ${DB_BACKUP_PATH}/${TODAY}
-echo "Backup started for database - ${DATABASE_NAME}"
+# Create the backup directory
+mkdir -p "${db_backup_path}/${TODAY}"
+echo "Backup started for database - ${database_name}"
 
+# Dump the database and compress the output
+mysqldump -h "${mysql_host}" \
+          -P "${mysql_port}" \
+          -u "${mysql_user}" \
+          -p"${mysql_password}" \
+          "${database_name}" --set-gtid-purged=OFF | gzip > "${db_backup_path}/${TODAY}/${database_name}-${TODAY}.sql.gz"
 
-mysqldump -h ${MYSQL_HOST} \
-                  -P ${MYSQL_PORT} \
-                  -u ${MYSQL_USER} \
-                  -p${MYSQL_PASSWORD} \
-                  ${DATABASE_NAME} --set-gtid-purged=OFF | gzip > ${DB_BACKUP_PATH}/${TODAY}/${DATABASE_NAME}-${TODAY}.sql.gz
-
+# Check if the backup was successful
 if [ $? -eq 0 ]; then
   echo "Database backup successfully completed"
 else
@@ -33,16 +45,18 @@ else
   exit 1
 fi
 
+# Remove backups older than {backup_retain_days} days
+db_del_date=$(date +"%d%b%Y" --date="${backup_retain_days} days ago")
 
-##### Remove backups older than {BACKUP_RETAIN_DAYS} days  #####
-
-DBDELDATE=`date +"%d%b%Y" --date="${BACKUP_RETAIN_DAYS} days ago"`
-
-if [ ! -z ${DB_BACKUP_PATH} ]; then
-      cd ${DB_BACKUP_PATH}
-      if [ ! -z ${DBDELDATE} ] && [ -d ${DBDELDATE} ]; then
-            rm -rf ${DBDELDATE}
-      fi
+if [ ! -z "${db_backup_path}" ]; then
+    cd "${db_backup_path}"
+    if [ ! -z "${db_del_date}" ] && [ -d "${db_del_date}" ]; then
+        echo "Deleting backup directory: ${db_del_date}"
+        rm -rf "${db_del_date}"
+    else
+        echo "No backup directory found to delete for date: ${db_del_date}"
+    fi
 fi
-#--set-gtid-purged=OFF < is for cluster dumping 
-### End of script ####
+
+#--set-gtid-purged=OFF is for cluster dumping 
+### End of script ###
